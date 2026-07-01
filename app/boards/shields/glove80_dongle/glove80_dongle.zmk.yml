@@ -1,0 +1,8 @@
+file_format: "1"
+id: glove80_dongle
+name: Glove80 Dongle
+type: shield
+url: https://www.moergo.com/
+requires: [seeed_xiao]
+features:
+  - keys

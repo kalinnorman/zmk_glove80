@@ -1,0 +1,41 @@
+# Copyright (c) 2024 The ZMK Contributors
+# SPDX-License-Identifier: MIT
+
+if SHIELD_GLOVE80_DONGLE
+
+config ZMK_KEYBOARD_NAME
+    default "Glove80"
+
+config ZMK_SPLIT
+    default y
+
+config ZMK_SPLIT_ROLE_CENTRAL
+    default y
+
+# The dongle has two peripherals: the Glove80 left and right halves.
+config ZMK_SPLIT_BLE_CENTRAL_PERIPHERALS
+    default 2
+
+# Peripherals (2) + desired number of host Bluetooth profiles (5, matching
+# the stock Glove80 central).
+config BT_MAX_CONN
+    default 7
+
+config BT_MAX_PAIRED
+    default 7
+
+config ZMK_USB
+    default y
+
+config ZMK_BLE
+    default y
+
+# Use higher radio transmit power, matching the Glove80 halves.
+config BT_CTLR_TX_PWR_PLUS_8
+    default y
+
+# Fetch peripheral battery levels so they can be reported to the host.
+config ZMK_SPLIT_BLE_CENTRAL_BATTERY_LEVEL_FETCHING
+    default y
+
+endif # SHIELD_GLOVE80_DONGLE

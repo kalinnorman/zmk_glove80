@@ -21,6 +21,7 @@ on:
 jobs:
   build:
     name: Build Firmware
+    if: (github.head_ref || github.ref_name) == 'main'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -46,6 +47,37 @@ jobs:
         with:
           name: ${{matrix.board}}.uf2
           path: ${{matrix.board}}.uf2
+  build-dongle:
+    name: Build Dongle Firmware
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        attr:
+          - glove80_dongle
+          - glove80_dongle_left
+          - glove80_right
+          - glove80_dongle_settings_reset
+          - glove80_settings_reset_right
+          - zmk_settings_reset
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-22.05
+      - uses: cachix/cachix-action@v15
+        with:
+          name: moergo-glove80-zmk-dev
+          authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
+          skipPush: true
+      - name: Build ${{ matrix.attr }}
+        run: nix-build -A ${{ matrix.attr }} -o result
+      - name: Copy result out of nix store
+        run: cp result/zmk.uf2 ${{ matrix.attr }}.uf2
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.attr }}.uf2
+          path: ${{ matrix.attr }}.uf2
   release:
     name: Create Release for Tag
     if: >-
