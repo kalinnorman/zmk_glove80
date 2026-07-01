@@ -21,6 +21,7 @@ on:
 jobs:
   build:
     name: Build Firmware
+    if: (github.head_ref || github.ref_name) == 'main'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -72,32 +73,32 @@ jobs:
       - name: Build ${{ matrix.attr }}
         run: nix-build -A ${{ matrix.attr }} -o result
       - name: Copy result out of nix store
-        run: cp result/zmk.uf2 ${{ matrix.attr }}.uf2
+        run: cp result/zmk.uf2 dongle-${{ matrix.attr }}.uf2
       - name: Upload result
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.attr }}.uf2
-          path: ${{ matrix.attr }}.uf2
-  release:
-    name: Create Release for Tag
-    if: >-
-      github.repository == 'moergo-sc/zmk'
-      && github.event_name == 'push'
-      && contains(github.ref, 'refs/tags/v')
+          name: dongle-${{ matrix.attr }}.uf2
+          path: dongle-${{ matrix.attr }}.uf2
+  bundle-dongle-firmware:
+    name: Bundle Dongle Firmware
+    needs: build-dongle
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge dongle firmware artifacts into one download
+        uses: actions/upload-artifact/merge@v4
+        with:
+          name: glove80-dongle-firmware
+          pattern: "dongle-*.uf2"
+          delete-merged: true
+  bundle-standard-firmware:
+    name: Bundle Standard Firmware
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Download Glove80 firmware artifact
-        uses: actions/download-artifact@v4
+      - name: Merge standard firmware artifacts into one download
+        uses: actions/upload-artifact/merge@v4
         with:
-          name: glove80.uf2
-      - name: Download Go60 firmware artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: go60.uf2
-      - name: Create Release for Tag
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: "glove80.uf2,go60.uf2"
-          artifactErrorsFailBuild: true
-          generateReleaseNotes: true
+          name: glove80-standard-firmware
+          pattern: "{glove80,go60}.uf2"
+          delete-merged: true
