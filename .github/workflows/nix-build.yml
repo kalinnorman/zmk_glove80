@@ -21,7 +21,6 @@ on:
 jobs:
   build:
     name: Build Firmware
-    if: (github.head_ref || github.ref_name) == 'main'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -51,6 +50,7 @@ jobs:
     name: Build Dongle Firmware
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         attr:
           - glove80_dongle

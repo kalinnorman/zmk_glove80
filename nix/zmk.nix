@@ -90,7 +90,6 @@ stdenvNoCC.mkDerivation {
     # "-DZephyrBuildConfiguration_ROOT=${zephyr}/zephyr"
     # TODO: is this required? if not, why not?
     "-DZEPHYR_BASE=${zephyr}/zephyr"
-    "-DBOARD_ROOT=."
     "-DBOARD=${board}"
     "-DZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb"
     "-DGNUARMEMB_TOOLCHAIN_PATH=${gcc-arm-embedded}"
