@@ -30,10 +30,6 @@ config ZMK_USB
 config ZMK_BLE
     default y
 
-# Use higher radio transmit power, matching the Glove80 halves.
-config BT_CTLR_TX_PWR_PLUS_8
-    default y
-
 # Fetch peripheral battery levels so they can be reported to the host.
 config ZMK_SPLIT_BLE_CENTRAL_BATTERY_LEVEL_FETCHING
     default y
