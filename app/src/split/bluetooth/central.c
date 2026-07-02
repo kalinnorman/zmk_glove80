@@ -580,8 +580,15 @@ write_underglow_status_to_peripheral(int index,
         return -EAGAIN;
     }
 
+    // TEMPORARY DEBUG LOGGING - remove once the peer-battery relay bug is found.
+    LOG_ERR("UGDBG: writing to peripheral %d, peer_battery_level=%u, handle=%u", index,
+           status->peer_battery_level, slot->update_underglow_status);
+
     int err = bt_gatt_write_without_response(slot->conn, slot->update_underglow_status, status,
                                              sizeof(*status), true);
+
+    // TEMPORARY DEBUG LOGGING - remove once the peer-battery relay bug is found.
+    LOG_ERR("UGDBG: write to peripheral %d returned err=%d", index, err);
 
     if (err < 0) {
         LOG_ERR("Failed to write underglow status to peripheral (err %d)", err);
@@ -594,8 +601,14 @@ write_underglow_status_to_peripheral(int index,
 // other half whose battery it should display) is always `1 - i`.
 static uint8_t peer_battery_level_for(int index) {
     uint8_t level;
+    int peer = 1 - index;
 
-    int err = zmk_split_central_get_peripheral_battery_level(1 - index, &level);
+    int err = zmk_split_central_get_peripheral_battery_level(peer, &level);
+
+    // TEMPORARY DEBUG LOGGING - remove once the peer-battery relay bug is found.
+    LOG_ERR("UGDBG: peer_battery_level_for(index=%d, peer=%d) -> err=%d level=%u", index, peer,
+           err, level);
+
     if (err < 0) {
         return ZMK_RGB_UNDERGLOW_STATUS_BATTERY_UNKNOWN;
     }

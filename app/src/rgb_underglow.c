@@ -313,6 +313,8 @@ static struct zmk_rgb_underglow_peripheral_status underglow_peripheral_status;
 void zmk_rgb_underglow_set_peripheral_status(
     const struct zmk_rgb_underglow_peripheral_status *status) {
     underglow_peripheral_status = *status;
+    // TEMPORARY DEBUG LOGGING - remove once the peer-battery relay bug is found.
+    LOG_ERR("UGDBG: cached peer_battery_level=%u", underglow_peripheral_status.peer_battery_level);
 }
 
 #define HEXRGB(R, G, B)                                                                            \
@@ -384,6 +386,9 @@ static int zmk_led_generate_status(void) {
 #elif !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
     // As a peripheral, use the peer battery level relayed from the central
     // (see zmk_rgb_underglow_set_peripheral_status).
+    // TEMPORARY DEBUG LOGGING - remove once the peer-battery relay bug is found.
+    LOG_ERR("UGDBG: rendering with peer_battery_level=%u",
+           underglow_peripheral_status.peer_battery_level);
     if (underglow_peripheral_status.peer_battery_level ==
         ZMK_RGB_UNDERGLOW_STATUS_BATTERY_UNKNOWN) {
         zmk_led_fill(red, underglow_bat_rhs, DT_PROP_LEN(UNDERGLOW_INDICATORS, bat_rhs));

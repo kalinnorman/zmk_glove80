@@ -120,6 +120,10 @@ static ssize_t split_svc_update_underglow_status(struct bt_conn *conn,
 
     memcpy((uint8_t *)&underglow_status_payload + offset, buf, len);
 
+    // TEMPORARY DEBUG LOGGING - remove once the peer-battery relay bug is found.
+    LOG_ERR("UGDBG: GATT write received len=%u offset=%u peer_battery_level=%u", len, offset,
+           underglow_status_payload.peer_battery_level);
+
     zmk_rgb_underglow_set_peripheral_status(&underglow_status_payload);
 
     return len;
