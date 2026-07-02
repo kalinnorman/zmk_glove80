@@ -34,4 +34,13 @@ config ZMK_BLE
 config ZMK_SPLIT_BLE_CENTRAL_BATTERY_LEVEL_FETCHING
     default y
 
+# Relay HID indicator (caps/num/scroll lock) state to the peripherals.
+config ZMK_SPLIT_PERIPHERAL_HID_INDICATORS
+    default y
+
+# Push layer/battery/BLE/USB status to the peripherals so LH can render its
+# zmk,underglow-indicators overlay while acting as a plain peripheral.
+config ZMK_SPLIT_BLE_CENTRAL_UNDERGLOW_STATUS_PROXY
+    default y
+
 endif # SHIELD_GLOVE80_DONGLE

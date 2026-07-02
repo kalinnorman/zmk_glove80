@@ -16,8 +16,9 @@
 #include <zmk/ble.h>
 #include <zmk/endpoints.h>
 #include <zmk/keymap.h>
-#include <zmk/hid_indicators.h>
 #include <zmk/usb.h>
+#include <zmk/rgb_underglow_status.h>
+#include <zmk/events/hid_indicators_changed.h>
 
 #include <zephyr/logging/log.h>
 
@@ -276,12 +277,41 @@ static void zmk_led_write_pixels(void) {
 
 #if !UNDERGLOW_INDICATORS_ENABLED
 static int zmk_led_generate_status(void) { return 0; }
+void zmk_rgb_underglow_set_peripheral_status(const struct zmk_rgb_underglow_peripheral_status *status) {}
 #else
 
 const uint8_t underglow_layer_state[] = DT_PROP(UNDERGLOW_INDICATORS, layer_state);
 const uint8_t underglow_ble_state[] = DT_PROP(UNDERGLOW_INDICATORS, ble_state);
 const uint8_t underglow_bat_lhs[] = DT_PROP(UNDERGLOW_INDICATORS, bat_lhs);
 const uint8_t underglow_bat_rhs[] = DT_PROP(UNDERGLOW_INDICATORS, bat_rhs);
+
+// Cached HID indicator bits (capslock/numlock/scrolllock). Populated via the
+// zmk_hid_indicators_changed event, which fires correctly whether this node
+// is the split central (indicators come from the host) or a peripheral
+// (indicators are relayed down from the central over the existing
+// CONFIG_ZMK_SPLIT_PERIPHERAL_HID_INDICATORS GATT characteristic) - so this
+// works uniformly for both roles with no #if branching needed.
+static zmk_hid_indicators_t underglow_hid_indicators = 0;
+
+static int underglow_hid_indicators_listener_cb(const zmk_event_t *eh) {
+    const struct zmk_hid_indicators_changed *ev = as_zmk_hid_indicators_changed(eh);
+    if (ev != NULL) {
+        underglow_hid_indicators = ev->indicators;
+    }
+    return ZMK_EV_EVENT_BUBBLE;
+}
+
+ZMK_LISTENER(underglow_hid_indicators, underglow_hid_indicators_listener_cb);
+ZMK_SUBSCRIPTION(underglow_hid_indicators, zmk_hid_indicators_changed);
+
+// Cached status snapshot most recently pushed by the split central (only
+// meaningful when this node is a peripheral; see
+// CONFIG_ZMK_SPLIT_BLE_CENTRAL_UNDERGLOW_STATUS_PROXY).
+static struct zmk_rgb_underglow_peripheral_status underglow_peripheral_status;
+
+void zmk_rgb_underglow_set_peripheral_status(const struct zmk_rgb_underglow_peripheral_status *status) {
+    underglow_peripheral_status = *status;
+}
 
 #define HEXRGB(R, G, B)                                                                            \
     ((struct led_rgb){                                                                             \
@@ -349,11 +379,21 @@ static int zmk_led_generate_status(void) {
     } else if (rc == -EINVAL) {
         LOG_ERR("Invalid peripheral index requested for battery level read: 0");
     }
+#elif !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+    // As a peripheral, use the peer battery level relayed from the central
+    // (see zmk_rgb_underglow_set_peripheral_status).
+    if (underglow_peripheral_status.peer_battery_level ==
+        ZMK_RGB_UNDERGLOW_STATUS_BATTERY_UNKNOWN) {
+        zmk_led_fill(red, underglow_bat_rhs, DT_PROP_LEN(UNDERGLOW_INDICATORS, bat_rhs));
+    } else {
+        zmk_led_battery_level(underglow_peripheral_status.peer_battery_level, underglow_bat_rhs,
+                              DT_PROP_LEN(UNDERGLOW_INDICATORS, bat_rhs));
+    }
 #endif // CONFIG_ZMK_SPLIT_BLE_CENTRAL_BATTERY_LEVEL_FETCHING
 #endif // CONFIG_ZMK_BATTERY_REPORTING
 
     // CAPSLOCK/NUMLOCK/SCROLLOCK STATUS
-    zmk_hid_indicators_t led_flags = zmk_hid_indicators_get_current_profile();
+    zmk_hid_indicators_t led_flags = underglow_hid_indicators;
 
     if (led_flags & ZMK_LED_CAPSLOCK_BIT)
         status_pixels[DT_PROP(UNDERGLOW_INDICATORS, capslock)] = red;
@@ -362,6 +402,7 @@ static int zmk_led_generate_status(void) {
     if (led_flags & ZMK_LED_SCROLLLOCK_BIT)
         status_pixels[DT_PROP(UNDERGLOW_INDICATORS, scrolllock)] = red;
 
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
     // LAYER STATUS
     for (uint8_t i = 0; i < DT_PROP_LEN(UNDERGLOW_INDICATORS, layer_state); i++) {
         if (zmk_keymap_layer_active(i))
@@ -369,6 +410,7 @@ static int zmk_led_generate_status(void) {
     }
 
     struct zmk_endpoint_instance active_endpoint = zmk_endpoints_selected();
+    enum zmk_transport active_transport = active_endpoint.transport;
 
     if (!zmk_endpoints_preferred_transport_is_active())
         status_pixels[DT_PROP(UNDERGLOW_INDICATORS, output_fallback)] = red;
@@ -379,7 +421,7 @@ static int zmk_led_generate_status(void) {
          i < MIN(ZMK_BLE_PROFILE_COUNT, DT_PROP_LEN(UNDERGLOW_INDICATORS, ble_state)); i++) {
         int8_t status = zmk_ble_profile_status(i);
         int ble_pixel = underglow_ble_state[i];
-        if (status == 2 && active_endpoint.transport == ZMK_TRANSPORT_BLE &&
+        if (status == 2 && active_transport == ZMK_TRANSPORT_BLE &&
             active_ble_profile_index == i) { // connected AND active
             status_pixels[ble_pixel] = white;
         } else if (status == 2) { // connected
@@ -393,8 +435,50 @@ static int zmk_led_generate_status(void) {
 #endif
 
     enum zmk_usb_conn_state usb_state = zmk_usb_get_conn_state();
+#else // !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+    // As a peripheral, render from the status snapshot most recently pushed
+    // by the split central (see zmk_rgb_underglow_set_peripheral_status),
+    // since the APIs used in the CONFIG_ZMK_SPLIT_ROLE_CENTRAL branch above
+    // aren't compiled into peripheral builds.
+
+    // LAYER STATUS
+    for (uint8_t i = 0; i < DT_PROP_LEN(UNDERGLOW_INDICATORS, layer_state); i++) {
+        if (underglow_peripheral_status.active_layers & BIT(i))
+            status_pixels[underglow_layer_state[i]] = magenta;
+    }
+
+    enum zmk_transport active_transport =
+        (enum zmk_transport)underglow_peripheral_status.active_transport;
+
+    if (!underglow_peripheral_status.preferred_transport_is_active)
+        status_pixels[DT_PROP(UNDERGLOW_INDICATORS, output_fallback)] = red;
+
+#if IS_ENABLED(CONFIG_ZMK_BLE)
+    int active_ble_profile_index = underglow_peripheral_status.active_ble_profile_index;
+    for (uint8_t i = 0; i < MIN(ZMK_RGB_UNDERGLOW_STATUS_MAX_BLE_PROFILES,
+                                DT_PROP_LEN(UNDERGLOW_INDICATORS, ble_state));
+        i++) {
+        int8_t status = (int8_t)underglow_peripheral_status.ble_profile_status[i];
+        int ble_pixel = underglow_ble_state[i];
+        if (status == 2 && active_transport == ZMK_TRANSPORT_BLE &&
+            active_ble_profile_index == i) { // connected AND active
+            status_pixels[ble_pixel] = white;
+        } else if (status == 2) { // connected
+            status_pixels[ble_pixel] = dull_green;
+        } else if (status == 1) { // paired
+            status_pixels[ble_pixel] = red;
+        } else if (status == 0) { // unused
+            status_pixels[ble_pixel] = lilac;
+        }
+    }
+#endif
+
+    enum zmk_usb_conn_state usb_state =
+        (enum zmk_usb_conn_state)underglow_peripheral_status.usb_conn_state;
+#endif // IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+
     if (usb_state == ZMK_USB_CONN_HID &&
-        active_endpoint.transport == ZMK_TRANSPORT_USB) { // connected AND active
+        active_transport == ZMK_TRANSPORT_USB) { // connected AND active
         status_pixels[DT_PROP(UNDERGLOW_INDICATORS, usb_state)] = white;
     } else if (usb_state == ZMK_USB_CONN_HID) { // connected
         status_pixels[DT_PROP(UNDERGLOW_INDICATORS, usb_state)] = dull_green;
