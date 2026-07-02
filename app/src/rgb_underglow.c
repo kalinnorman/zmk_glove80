@@ -282,6 +282,7 @@ const uint8_t underglow_layer_state[] = DT_PROP(UNDERGLOW_INDICATORS, layer_stat
 const uint8_t underglow_ble_state[] = DT_PROP(UNDERGLOW_INDICATORS, ble_state);
 const uint8_t underglow_bat_lhs[] = DT_PROP(UNDERGLOW_INDICATORS, bat_lhs);
 const uint8_t underglow_bat_rhs[] = DT_PROP(UNDERGLOW_INDICATORS, bat_rhs);
+const uint8_t underglow_bat_lh_rh_periph[] = DT_PROP(UNDERGLOW_INDICATORS, bat_lh_rh_periph);
 
 #define HEXRGB(R, G, B)                                                                            \
     ((struct led_rgb){                                                                             \
@@ -296,6 +297,33 @@ const struct led_rgb dull_green = HEXRGB(0x00, 0xff, 0x68);
 const struct led_rgb magenta = HEXRGB(0xff, 0x00, 0xff);
 const struct led_rgb white = HEXRGB(0xff, 0xff, 0xff);
 const struct led_rgb lilac = HEXRGB(0x6b, 0x1f, 0xce);
+
+static struct led_rgb battery_gradient_colour(int bat_level) {
+    int level = CLAMP(bat_level, 0, 100);
+    uint8_t r, g;
+    if (level >= 50) {
+        r = (uint8_t)((100 - level) * 2 * 0xff / 100);  // 0 at 100%, 0xff at 50%
+        g = 0xff;
+    } else {
+        r = 0xff;
+        g = (uint8_t)(level * 2 * 0xff / 100);           // 0xff at 50%, 0 at 0%
+    }
+    return HEXRGB(r, g, 0x00);
+}
+
+static void zmk_led_battery_level_periph(int bat_level, const uint8_t *addresses, size_t addresses_len) {
+    struct led_rgb bat_colour;
+    // gradient from green at 100 to yellow at 50 to red at 0
+    bat_colour = battery_gradient_colour(bat_level);
+
+    for (int i = 0; i < addresses_len; i++) {
+        int min_level = (i * 100) / (addresses_len - 1);
+        if (bat_level >= min_level) {
+            status_pixels[addresses[i]] = bat_colour;
+        }
+    }
+}
+
 static void zmk_led_battery_level(int bat_level, const uint8_t *addresses, size_t addresses_len) {
     struct led_rgb bat_colour;
 
@@ -343,8 +371,12 @@ static int zmk_led_generate_status(void) {
     // battery over BLE for a peripheral-mode central (e.g. a dongle) - see
     // project history for the relay approach that was tried and abandoned.
 #if IS_ENABLED(CONFIG_ZMK_BATTERY_REPORTING)
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
     zmk_led_battery_level(zmk_battery_state_of_charge(), underglow_bat_lhs,
                           DT_PROP_LEN(UNDERGLOW_INDICATORS, bat_lhs));
+#else
+    zmk_led_battery_level_periph(zmk_battery_state_of_charge(), underglow_bat_lh_rh_periph,
+                          DT_PROP_LEN(UNDERGLOW_INDICATORS, bat_lh_rh_periph));
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_BLE_CENTRAL_BATTERY_LEVEL_FETCHING)
     uint8_t peripheral_level = 0;
     int rc = zmk_split_central_get_peripheral_battery_level(0, &peripheral_level);

@@ -33,3 +33,6 @@ properties:
   output-fallback:
     type: int
     required: true
+  bat-lh-rh-periph:
+    type: array
+    required: true

@@ -57,6 +57,7 @@
         output-fallback = <11>;
         ble-state   = <20 15 10 6>;
         usb-state   = <21>;
+        bat-lh-rh-periph = <26 22 17 12 7 27 23 18 13 8 28 24 19 14 9 29 25 20 15 10>;
     };
 
     go60_ext: connector {
