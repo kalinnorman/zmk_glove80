@@ -53,4 +53,5 @@ BUILD_ASSERT(sizeof(struct zmk_rgb_underglow_peripheral_status) <= 20,
 /* Implemented in src/rgb_underglow.c. Called on the peripheral (from the
  * split BLE service's GATT write callback) whenever the central pushes a
  * fresh status snapshot. */
-void zmk_rgb_underglow_set_peripheral_status(const struct zmk_rgb_underglow_peripheral_status *status);
+void zmk_rgb_underglow_set_peripheral_status(
+    const struct zmk_rgb_underglow_peripheral_status *status);

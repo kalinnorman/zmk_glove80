@@ -619,7 +619,7 @@ static void underglow_status_push_work_handler(struct k_work *work) {
     status.usb_conn_state = zmk_usb_get_conn_state();
 
     for (uint8_t i = 0; i < ZMK_RGB_UNDERGLOW_STATUS_MAX_BLE_PROFILES && i < ZMK_BLE_PROFILE_COUNT;
-        i++) {
+         i++) {
         status.ble_profile_status[i] = (uint8_t)zmk_ble_profile_status(i);
     }
 

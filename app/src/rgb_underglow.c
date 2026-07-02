@@ -277,7 +277,8 @@ static void zmk_led_write_pixels(void) {
 
 #if !UNDERGLOW_INDICATORS_ENABLED
 static int zmk_led_generate_status(void) { return 0; }
-void zmk_rgb_underglow_set_peripheral_status(const struct zmk_rgb_underglow_peripheral_status *status) {}
+void zmk_rgb_underglow_set_peripheral_status(
+    const struct zmk_rgb_underglow_peripheral_status *status) {}
 #else
 
 const uint8_t underglow_layer_state[] = DT_PROP(UNDERGLOW_INDICATORS, layer_state);
@@ -309,7 +310,8 @@ ZMK_SUBSCRIPTION(underglow_hid_indicators, zmk_hid_indicators_changed);
 // CONFIG_ZMK_SPLIT_BLE_CENTRAL_UNDERGLOW_STATUS_PROXY).
 static struct zmk_rgb_underglow_peripheral_status underglow_peripheral_status;
 
-void zmk_rgb_underglow_set_peripheral_status(const struct zmk_rgb_underglow_peripheral_status *status) {
+void zmk_rgb_underglow_set_peripheral_status(
+    const struct zmk_rgb_underglow_peripheral_status *status) {
     underglow_peripheral_status = *status;
 }
 
@@ -457,7 +459,7 @@ static int zmk_led_generate_status(void) {
     int active_ble_profile_index = underglow_peripheral_status.active_ble_profile_index;
     for (uint8_t i = 0; i < MIN(ZMK_RGB_UNDERGLOW_STATUS_MAX_BLE_PROFILES,
                                 DT_PROP_LEN(UNDERGLOW_INDICATORS, ble_state));
-        i++) {
+         i++) {
         int8_t status = (int8_t)underglow_peripheral_status.ble_profile_status[i];
         int ble_pixel = underglow_ble_state[i];
         if (status == 2 && active_transport == ZMK_TRANSPORT_BLE &&
