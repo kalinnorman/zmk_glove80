@@ -302,16 +302,17 @@ static struct led_rgb battery_gradient_colour(int bat_level) {
     int level = CLAMP(bat_level, 0, 100);
     uint8_t r, g;
     if (level >= 50) {
-        r = (uint8_t)((100 - level) * 2 * 0xff / 100);  // 0 at 100%, 0xff at 50%
+        r = (uint8_t)((100 - level) * 2 * 0xff / 100); // 0 at 100%, 0xff at 50%
         g = 0xff;
     } else {
         r = 0xff;
-        g = (uint8_t)(level * 2 * 0xff / 100);           // 0xff at 50%, 0 at 0%
+        g = (uint8_t)(level * 2 * 0xff / 100); // 0xff at 50%, 0 at 0%
     }
     return HEXRGB(r, g, 0x00);
 }
 
-static void zmk_led_battery_level_periph(int bat_level, const uint8_t *addresses, size_t addresses_len) {
+static void zmk_led_battery_level_periph(int bat_level, const uint8_t *addresses,
+                                         size_t addresses_len) {
     struct led_rgb bat_colour;
     // gradient from green at 100 to yellow at 50 to red at 0
     bat_colour = battery_gradient_colour(bat_level);
@@ -376,7 +377,8 @@ static int zmk_led_generate_status(void) {
                           DT_PROP_LEN(UNDERGLOW_INDICATORS, bat_lhs));
 #else
     zmk_led_battery_level_periph(zmk_battery_state_of_charge(), underglow_bat_lh_rh_periph,
-                          DT_PROP_LEN(UNDERGLOW_INDICATORS, bat_lh_rh_periph));
+                                 DT_PROP_LEN(UNDERGLOW_INDICATORS, bat_lh_rh_periph));
+#endif
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_BLE_CENTRAL_BATTERY_LEVEL_FETCHING)
     uint8_t peripheral_level = 0;
     int rc = zmk_split_central_get_peripheral_battery_level(0, &peripheral_level);
