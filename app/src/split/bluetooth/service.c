@@ -205,8 +205,7 @@ BT_GATT_SERVICE_DEFINE(
                            BT_GATT_CHRC_WRITE | BT_GATT_CHRC_READ,
                            BT_GATT_PERM_WRITE_ENCRYPT | BT_GATT_PERM_READ_ENCRYPT,
                            split_svc_get_selected_phys_layout, split_svc_select_phys_layout, 
-                           NULL),
-);
+                           NULL), );
 
 K_THREAD_STACK_DEFINE(service_q_stack, CONFIG_ZMK_SPLIT_BLE_PERIPHERAL_STACK_SIZE);
 
