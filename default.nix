@@ -59,9 +59,9 @@ makeScope newScope (self: with self; {
 
   # Seeed XIAO BLE as a BLE central "dongle", with the Glove80 halves
   # demoted to peripherals. Build and flash all three of:
-  #   - glove80_dongle       (flash to the XIAO)
-  #   - glove80_dongle_left  (flash to the LH half instead of glove80_left)
-  #   - glove80_right        (unchanged - RH is already a peripheral)
+  #   - glove80_dongle_xiao   (flash to the XIAO)
+  #   - glove80_dongle_left   (flash to the LH half instead of glove80_left)
+  #   - glove80_dongle_right  (flash to the RH half)
   # Flash the matching glove80_settings_reset_* firmware to all three first
   # if they were previously paired in another role.
   glove80_dongle_xiao = zmk.override {
@@ -78,7 +78,7 @@ makeScope newScope (self: with self; {
     board = "glove80_rh";
   };
 
-  glove80_settings_reset_dongle = zmk.override {
+  glove80_settings_reset_xiao = zmk.override {
     board = "seeeduino_xiao_ble";
     shield = "settings_reset";
   };

@@ -11,6 +11,17 @@
     chosen {
         zmk,kscan = &mock_kscan;
         zmk,physical-layout = &physical_layout0;
+        /*
+         * The generic XIAO BLE board overlay sets zmk,battery to &vbatt,
+         * assuming a LiPo is attached. A bare dongle typically has none, so
+         * that ADC reading would be meaningless noise. Drop the chosen
+         * property entirely (rather than just disabling &vbatt below) so
+         * src/battery.c takes its "no battery chosen" code path instead of
+         * trying to reference the now-disabled device - referencing a
+         * disabled node via DEVICE_DT_GET(DT_CHOSEN(...)) is a compile
+         * error, not a graceful runtime no-op.
+         */
+        /delete-property/ zmk,battery;
     };
 
     mock_kscan: mock_kscan_0 {
@@ -47,11 +58,9 @@
 };
 
 /*
- * The XIAO BLE's generic board overlay (boards/seeeduino_xiao_ble.overlay)
- * wires up a battery voltage divider on the assumption a LiPo cell is
- * attached. A bare dongle typically has no battery attached, so that ADC
- * reading is meaningless noise - disable it so the dongle doesn't report a
- * garbage "battery level" to the host or to battery-monitoring tools.
+ * Now that nothing references &vbatt via the zmk,battery chosen property
+ * (deleted above), it's safe to disable the underlying voltage-divider
+ * device too, so its ADC/GPIO driver isn't even compiled in or initialized.
  */
 &vbatt {
     status = "disabled";
