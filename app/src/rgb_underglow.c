@@ -310,9 +310,18 @@ ZMK_SUBSCRIPTION(underglow_hid_indicators, zmk_hid_indicators_changed);
 // CONFIG_ZMK_SPLIT_BLE_CENTRAL_UNDERGLOW_STATUS_PROXY).
 static struct zmk_rgb_underglow_peripheral_status underglow_peripheral_status;
 
+// TEMPORARY DEBUG DIAGNOSTIC - remove once the peer-battery relay bug is
+// found. Distinguishes "central never wrote anything here at all" (GATT
+// write/discovery never landing) from "a write landed, but the value was
+// wrong" (bug in what the central computed or sent) - see the bat-rhs
+// rendering below, which uses this to show blue instead of the normal
+// battery bar when nothing has ever arrived.
+static bool underglow_peripheral_status_received = false;
+
 void zmk_rgb_underglow_set_peripheral_status(
     const struct zmk_rgb_underglow_peripheral_status *status) {
     underglow_peripheral_status = *status;
+    underglow_peripheral_status_received = true;
     // TEMPORARY DEBUG LOGGING - remove once the peer-battery relay bug is found.
     LOG_ERR("UGDBG: cached peer_battery_level=%u", underglow_peripheral_status.peer_battery_level);
 }
@@ -330,6 +339,10 @@ const struct led_rgb dull_green = HEXRGB(0x00, 0xff, 0x68);
 const struct led_rgb magenta = HEXRGB(0xff, 0x00, 0xff);
 const struct led_rgb white = HEXRGB(0xff, 0xff, 0xff);
 const struct led_rgb lilac = HEXRGB(0x6b, 0x1f, 0xce);
+// TEMPORARY DEBUG DIAGNOSTIC color - remove once the peer-battery relay bug
+// is found. Distinct from red/yellow/green so it can't be confused with a
+// real battery reading.
+const struct led_rgb blue = HEXRGB(0x00, 0x00, 0xff);
 
 static void zmk_led_battery_level(int bat_level, const uint8_t *addresses, size_t addresses_len) {
     struct led_rgb bat_colour;
@@ -387,9 +400,16 @@ static int zmk_led_generate_status(void) {
     // As a peripheral, use the peer battery level relayed from the central
     // (see zmk_rgb_underglow_set_peripheral_status).
     // TEMPORARY DEBUG LOGGING - remove once the peer-battery relay bug is found.
-    LOG_ERR("UGDBG: rendering with peer_battery_level=%u",
-           underglow_peripheral_status.peer_battery_level);
-    if (underglow_peripheral_status.peer_battery_level ==
+    LOG_ERR("UGDBG: rendering with received=%d peer_battery_level=%u",
+           underglow_peripheral_status_received, underglow_peripheral_status.peer_battery_level);
+    // TEMPORARY DEBUG DIAGNOSTIC: solid blue means the central has NEVER
+    // successfully written an underglow-status update to this device at
+    // all (GATT write/discovery issue) - a real battery bar (or the normal
+    // red "unknown" fill) means at least one write landed, narrowing the
+    // bug to what the central computed/sent rather than whether it arrived.
+    if (!underglow_peripheral_status_received) {
+        zmk_led_fill(blue, underglow_bat_rhs, DT_PROP_LEN(UNDERGLOW_INDICATORS, bat_rhs));
+    } else if (underglow_peripheral_status.peer_battery_level ==
         ZMK_RGB_UNDERGLOW_STATUS_BATTERY_UNKNOWN) {
         zmk_led_fill(red, underglow_bat_rhs, DT_PROP_LEN(UNDERGLOW_INDICATORS, bat_rhs));
     } else {
