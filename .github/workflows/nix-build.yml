@@ -55,11 +55,11 @@ jobs:
       matrix:
         attr:
           - glove80_dongle
-          - glove80_dongle_left
+          - glove80_left
           - glove80_right
-          - glove80_dongle_settings_reset
+          - glove80_settings_reset_dongle
+          - glove80_settings_reset_left
           - glove80_settings_reset_right
-          - zmk_settings_reset
     steps:
       - uses: actions/checkout@v4
       - uses: cachix/install-nix-action@v27

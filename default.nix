@@ -29,10 +29,6 @@ makeScope newScope (self: with self; {
 
   zmk = callPackage ./nix/zmk.nix { };
 
-  zmk_settings_reset = zmk.override {
-    shield = "settings_reset";
-  };
-
   glove80_left = zmk.override {
     board = "glove80_lh";
   };
@@ -66,20 +62,25 @@ makeScope newScope (self: with self; {
   #   - glove80_dongle       (flash to the XIAO)
   #   - glove80_dongle_left  (flash to the LH half instead of glove80_left)
   #   - glove80_right        (unchanged - RH is already a peripheral)
-  # settings_reset firmware must be flashed to all three first if they were
-  # previously paired in another role.
+  # Flash the matching glove80_settings_reset_* firmware to all three first
+  # if they were previously paired in another role.
   glove80_dongle = zmk.override {
     board = "seeeduino_xiao_ble";
     shield = "glove80_dongle";
   };
 
-  glove80_dongle_left = zmk.override {
+  glove80_left = zmk.override {
     board = "glove80_lh";
     kconfig = ./app/boards/arm/glove80/glove80_lh_dongle_peripheral.conf;
   };
 
-  glove80_dongle_settings_reset = zmk.override {
+  glove80_settings_reset_dongle = zmk.override {
     board = "seeeduino_xiao_ble";
+    shield = "settings_reset";
+  };
+
+  glove80_settings_reset_left = zmk.override {
+    board = "glove80_lh";
     shield = "settings_reset";
   };
 
