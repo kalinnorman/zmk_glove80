@@ -41,6 +41,22 @@
     };
 
     /*
+     * Placeholder ext_power device. src/rgb_underglow.c reads this
+     * unconditionally (not gated by CONFIG_ZMK_RGB_UNDERGLOW_EXT_POWER) in
+     * its critical-battery auto-off path, so simply disabling that Kconfig
+     * option isn't enough - the zmk,ext-power-generic instance needs to
+     * actually exist. Found via DT_INST(0, zmk_ext_power_generic), which
+     * doesn't need a chosen property, just one enabled node anywhere in the
+     * tree. control-gpios points at an unused XIAO pin - the dongle has no
+     * keys/buttons claiming any pins, and this is never expected to be
+     * physically connected to anything.
+     */
+    EXT_POWER: ext_power {
+        compatible = "zmk,ext-power-generic";
+        control-gpios = <&xiao_d 0 GPIO_ACTIVE_HIGH>;
+    };
+
+    /*
      * Copied from boards/arm/glove80/glove80.dtsi. The dongle has no keys of
      * its own, but needs the same matrix transform as the real halves so
      * that key position events reported by the LH/RH peripherals map to the
