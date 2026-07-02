@@ -41,15 +41,6 @@ config ZMK_SPLIT_BLE_CENTRAL_BATTERY_LEVEL_FETCHING
 config ZMK_SPLIT_BLE_CENTRAL_BATTERY_LEVEL_PROXY
     default y
 
-# Relay HID indicator (caps/num/scroll lock) state to the peripherals.
-config ZMK_SPLIT_PERIPHERAL_HID_INDICATORS
-    default y
-
-# Push layer/battery/BLE/USB status to the peripherals so LH can render its
-# zmk,underglow-indicators overlay while acting as a plain peripheral.
-config ZMK_SPLIT_BLE_CENTRAL_UNDERGLOW_STATUS_PROXY
-    default y
-
 # The dongle has no LED strip of its own, but &rgb_ug is a
 # BEHAVIOR_LOCALITY_GLOBAL behavior: zmk_behavior_invoke_binding() resolves
 # the behavior device *locally* on the central before it will relay the

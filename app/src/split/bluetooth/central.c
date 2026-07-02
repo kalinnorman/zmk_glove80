@@ -23,7 +23,6 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include <zmk/ble.h>
 #include <zmk/behavior.h>
 #include <zmk/sensors.h>
-#include <zmk/split/central.h>
 #include <zmk/split/transport/central.h>
 #include <zmk/split/bluetooth/uuid.h>
 #include <zmk/split/bluetooth/service.h>
@@ -34,16 +33,6 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include <zmk/pointing/input_split.h>
 #include <zmk/hid_indicators_types.h>
 #include <zmk/physical_layouts.h>
-#if IS_ENABLED(CONFIG_ZMK_SPLIT_BLE_CENTRAL_UNDERGLOW_STATUS_PROXY)
-#include <zmk/keymap.h>
-#include <zmk/endpoints.h>
-#include <zmk/usb.h>
-#include <zmk/rgb_underglow_status.h>
-#include <zmk/events/layer_state_changed.h>
-#include <zmk/events/ble_active_profile_changed.h>
-#include <zmk/events/usb_conn_state_changed.h>
-#include <zmk/events/endpoint_changed.h>
-#endif // IS_ENABLED(CONFIG_ZMK_SPLIT_BLE_CENTRAL_UNDERGLOW_STATUS_PROXY)
 
 static int start_scanning(void);
 
@@ -70,9 +59,6 @@ struct peripheral_slot {
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_PERIPHERAL_HID_INDICATORS)
     uint16_t update_hid_indicators;
 #endif // IS_ENABLED(CONFIG_ZMK_SPLIT_PERIPHERAL_HID_INDICATORS)
-#if IS_ENABLED(CONFIG_ZMK_SPLIT_BLE_CENTRAL_UNDERGLOW_STATUS_PROXY)
-    uint16_t update_underglow_status;
-#endif // IS_ENABLED(CONFIG_ZMK_SPLIT_BLE_CENTRAL_UNDERGLOW_STATUS_PROXY)
     uint16_t selected_physical_layout_handle;
     uint8_t position_state[POSITION_STATE_DATA_LEN];
     uint8_t changed_positions[POSITION_STATE_DATA_LEN];
@@ -233,9 +219,6 @@ int release_peripheral_slot(int index) {
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_PERIPHERAL_HID_INDICATORS)
     slot->update_hid_indicators = 0;
 #endif // IS_ENABLED(CONFIG_ZMK_SPLIT_PERIPHERAL_HID_INDICATORS)
-#if IS_ENABLED(CONFIG_ZMK_SPLIT_BLE_CENTRAL_UNDERGLOW_STATUS_PROXY)
-    slot->update_underglow_status = 0;
-#endif // IS_ENABLED(CONFIG_ZMK_SPLIT_BLE_CENTRAL_UNDERGLOW_STATUS_PROXY)
 
     return 0;
 }
@@ -552,120 +535,6 @@ static void update_peripherals_selected_physical_layout(struct k_work *_work) {
 K_WORK_DEFINE(update_peripherals_selected_layouts_work,
               update_peripherals_selected_physical_layout);
 
-#if IS_ENABLED(CONFIG_ZMK_SPLIT_BLE_CENTRAL_UNDERGLOW_STATUS_PROXY)
-
-static void underglow_status_push_work_handler(struct k_work *work);
-
-static K_WORK_DELAYABLE_DEFINE(underglow_status_push_work, underglow_status_push_work_handler);
-
-static void underglow_status_request_push(void) {
-    k_work_reschedule(&underglow_status_push_work, K_NO_WAIT);
-}
-
-static int
-write_underglow_status_to_peripheral(int index,
-                                     const struct zmk_rgb_underglow_peripheral_status *status) {
-    struct peripheral_slot *slot = &peripherals[index];
-
-    if (slot->state != PERIPHERAL_SLOT_STATE_CONNECTED) {
-        return -ENOTCONN;
-    }
-
-    if (slot->update_underglow_status == 0) {
-        // Handle not discovered yet.
-        return -EAGAIN;
-    }
-
-    if (bt_conn_get_security(slot->conn) < BT_SECURITY_L2) {
-        return -EAGAIN;
-    }
-
-    // TEMPORARY DEBUG LOGGING - remove once the peer-battery relay bug is found.
-    LOG_ERR("UGDBG: writing to peripheral %d, peer_battery_level=%u, handle=%u", index,
-           status->peer_battery_level, slot->update_underglow_status);
-
-    int err = bt_gatt_write_without_response(slot->conn, slot->update_underglow_status, status,
-                                             sizeof(*status), true);
-
-    // TEMPORARY DEBUG LOGGING - remove once the peer-battery relay bug is found.
-    LOG_ERR("UGDBG: write to peripheral %d returned err=%d", index, err);
-
-    if (err < 0) {
-        LOG_ERR("Failed to write underglow status to peripheral (err %d)", err);
-    }
-
-    return err;
-}
-
-// Glove80 always has exactly two split halves, so peripheral `i`'s peer (the
-// other half whose battery it should display) is always `1 - i`.
-static uint8_t peer_battery_level_for(int index) {
-    uint8_t level;
-    int peer = 1 - index;
-
-    int err = zmk_split_central_get_peripheral_battery_level(peer, &level);
-
-    // TEMPORARY DEBUG LOGGING - remove once the peer-battery relay bug is found.
-    LOG_ERR("UGDBG: peer_battery_level_for(index=%d, peer=%d) -> err=%d level=%u", index, peer,
-           err, level);
-
-    if (err < 0) {
-        return ZMK_RGB_UNDERGLOW_STATUS_BATTERY_UNKNOWN;
-    }
-
-    return level;
-}
-
-static void underglow_status_push_work_handler(struct k_work *work) {
-    struct zmk_rgb_underglow_peripheral_status status = {0};
-
-    for (uint8_t i = 0; i < ZMK_RGB_UNDERGLOW_STATUS_MAX_LAYERS; i++) {
-        if (zmk_keymap_layer_active(i)) {
-            status.active_layers |= BIT(i);
-        }
-    }
-
-    struct zmk_endpoint_instance active_endpoint = zmk_endpoints_selected();
-    status.active_transport = active_endpoint.transport;
-    status.preferred_transport_is_active = zmk_endpoints_preferred_transport_is_active();
-    status.active_ble_profile_index = zmk_ble_active_profile_index();
-    status.usb_conn_state = zmk_usb_get_conn_state();
-
-    for (uint8_t i = 0; i < ZMK_RGB_UNDERGLOW_STATUS_MAX_BLE_PROFILES && i < ZMK_BLE_PROFILE_COUNT;
-         i++) {
-        status.ble_profile_status[i] = (uint8_t)zmk_ble_profile_status(i);
-    }
-
-    for (int i = 0; i < ZMK_SPLIT_BLE_PERIPHERAL_COUNT; i++) {
-        if (peripherals[i].state != PERIPHERAL_SLOT_STATE_CONNECTED) {
-            continue;
-        }
-
-        status.peer_battery_level = peer_battery_level_for(i);
-        write_underglow_status_to_peripheral(i, &status);
-    }
-
-    // Some state transitions (e.g. a non-active BLE profile connecting, or a
-    // preferred-transport change that doesn't flip the active endpoint) raise
-    // no event at all, so unconditionally re-arm as a heartbeat in addition to
-    // the debounced reschedules triggered by underglow_status_listener_cb.
-    k_work_reschedule(&underglow_status_push_work, K_MSEC(1000));
-}
-
-static int underglow_status_listener_cb(const zmk_event_t *eh) {
-    k_work_reschedule(&underglow_status_push_work, K_MSEC(50));
-    return ZMK_EV_EVENT_BUBBLE;
-}
-
-ZMK_LISTENER(underglow_status_proxy, underglow_status_listener_cb);
-ZMK_SUBSCRIPTION(underglow_status_proxy, zmk_layer_state_changed);
-ZMK_SUBSCRIPTION(underglow_status_proxy, zmk_ble_active_profile_changed);
-ZMK_SUBSCRIPTION(underglow_status_proxy, zmk_usb_conn_state_changed);
-ZMK_SUBSCRIPTION(underglow_status_proxy, zmk_endpoint_changed);
-ZMK_SUBSCRIPTION(underglow_status_proxy, zmk_peripheral_battery_state_changed);
-
-#endif // IS_ENABLED(CONFIG_ZMK_SPLIT_BLE_CENTRAL_UNDERGLOW_STATUS_PROXY)
-
 static uint8_t split_central_chrc_discovery_func(struct bt_conn *conn,
                                                  const struct bt_gatt_attr *attr,
                                                  struct bt_gatt_discover_params *params) {
@@ -751,13 +620,6 @@ static uint8_t split_central_chrc_discovery_func(struct bt_conn *conn,
             LOG_DBG("Found update HID indicators handle");
             slot->update_hid_indicators = bt_gatt_attr_value_handle(attr);
 #endif // IS_ENABLED(CONFIG_ZMK_SPLIT_PERIPHERAL_HID_INDICATORS)
-#if IS_ENABLED(CONFIG_ZMK_SPLIT_BLE_CENTRAL_UNDERGLOW_STATUS_PROXY)
-        } else if (!bt_uuid_cmp(((struct bt_gatt_chrc *)attr->user_data)->uuid,
-                                BT_UUID_DECLARE_128(ZMK_SPLIT_BT_UNDERGLOW_STATUS_UUID))) {
-            LOG_DBG("Found underglow status handle");
-            slot->update_underglow_status = bt_gatt_attr_value_handle(attr);
-            underglow_status_request_push();
-#endif // IS_ENABLED(CONFIG_ZMK_SPLIT_BLE_CENTRAL_UNDERGLOW_STATUS_PROXY)
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_BLE_CENTRAL_BATTERY_LEVEL_FETCHING)
         } else if (!bt_uuid_cmp(((struct bt_gatt_chrc *)attr->user_data)->uuid,
                                 BT_UUID_BAS_BATTERY_LEVEL)) {

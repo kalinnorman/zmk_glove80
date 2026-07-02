@@ -32,10 +32,6 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include <zmk/events/hid_indicators_changed.h>
 #endif // IS_ENABLED(CONFIG_ZMK_SPLIT_PERIPHERAL_HID_INDICATORS)
 
-#if IS_ENABLED(CONFIG_ZMK_SPLIT_PERIPHERAL_UNDERGLOW_STATUS)
-#include <zmk/rgb_underglow_status.h>
-#endif // IS_ENABLED(CONFIG_ZMK_SPLIT_PERIPHERAL_UNDERGLOW_STATUS)
-
 #include <zmk/events/sensor_event.h>
 #include <zmk/sensors.h>
 
@@ -106,30 +102,6 @@ static ssize_t split_svc_update_indicators(struct bt_conn *conn, const struct bt
 }
 
 #endif // IS_ENABLED(CONFIG_ZMK_SPLIT_PERIPHERAL_HID_INDICATORS)
-
-#if IS_ENABLED(CONFIG_ZMK_SPLIT_PERIPHERAL_UNDERGLOW_STATUS)
-
-static struct zmk_rgb_underglow_peripheral_status underglow_status_payload;
-
-static ssize_t split_svc_update_underglow_status(struct bt_conn *conn,
-                                                 const struct bt_gatt_attr *attr, const void *buf,
-                                                 uint16_t len, uint16_t offset, uint8_t flags) {
-    if (offset + len > sizeof(underglow_status_payload)) {
-        return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
-    }
-
-    memcpy((uint8_t *)&underglow_status_payload + offset, buf, len);
-
-    // TEMPORARY DEBUG LOGGING - remove once the peer-battery relay bug is found.
-    LOG_ERR("UGDBG: GATT write received len=%u offset=%u peer_battery_level=%u", len, offset,
-           underglow_status_payload.peer_battery_level);
-
-    zmk_rgb_underglow_set_peripheral_status(&underglow_status_payload);
-
-    return len;
-}
-
-#endif // IS_ENABLED(CONFIG_ZMK_SPLIT_PERIPHERAL_UNDERGLOW_STATUS)
 
 static uint8_t selected_phys_layout = 0;
 
@@ -233,11 +205,6 @@ BT_GATT_SERVICE_DEFINE(
                            BT_GATT_CHRC_WRITE | BT_GATT_CHRC_READ,
                            BT_GATT_PERM_WRITE_ENCRYPT | BT_GATT_PERM_READ_ENCRYPT,
                            split_svc_get_selected_phys_layout, split_svc_select_phys_layout, NULL),
-#if IS_ENABLED(CONFIG_ZMK_SPLIT_PERIPHERAL_UNDERGLOW_STATUS)
-    BT_GATT_CHARACTERISTIC(BT_UUID_DECLARE_128(ZMK_SPLIT_BT_UNDERGLOW_STATUS_UUID),
-                           BT_GATT_CHRC_WRITE_WITHOUT_RESP, BT_GATT_PERM_WRITE_ENCRYPT, NULL,
-                           split_svc_update_underglow_status, NULL),
-#endif // IS_ENABLED(CONFIG_ZMK_SPLIT_PERIPHERAL_UNDERGLOW_STATUS)
 );
 
 K_THREAD_STACK_DEFINE(service_q_stack, CONFIG_ZMK_SPLIT_BLE_PERIPHERAL_STACK_SIZE);
