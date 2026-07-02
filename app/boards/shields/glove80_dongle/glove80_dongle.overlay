@@ -5,12 +5,21 @@
  */
 
 #include <dt-bindings/zmk/matrix_transform.h>
+#include <dt-bindings/led/led.h>
 #include "../../arm/glove80/glove80-layouts.dtsi"
 
 / {
     chosen {
         zmk,kscan = &mock_kscan;
         zmk,physical-layout = &physical_layout0;
+        /*
+         * The dongle has no LED strip of its own, but &rgb_ug is a
+         * BEHAVIOR_LOCALITY_GLOBAL behavior - the central must be able to
+         * resolve the behavior device locally (see src/behavior.c) before
+         * it will relay RGB commands on to LH/RH at all. This placeholder
+         * satisfies that requirement; see the single-pixel led_strip below.
+         */
+        zmk,underglow = &led_strip;
         /*
          * The generic XIAO BLE board overlay sets zmk,battery to &vbatt,
          * assuming a LiPo is attached. A bare dongle typically has none, so
@@ -55,6 +64,28 @@
 
 &physical_layout0 {
     transform = <&matrix_transform0>;
+};
+
+/*
+ * Single-pixel placeholder WS2812 strip. Not expected to be physically
+ * connected to anything - this exists purely so the &rgb_ug behavior device
+ * exists locally on the dongle (see the zmk,underglow chosen comment above).
+ * &xiao_spi is the Seeed XIAO interconnect's portable SPI bus label.
+ */
+&xiao_spi {
+    status = "okay";
+
+    led_strip: ws2812@0 {
+        compatible = "worldsemi,ws2812-spi";
+        reg = <0>;
+        spi-max-frequency = <4000000>;
+
+        chain-length = <1>;
+        spi-one-frame = <0x70>;
+        spi-zero-frame = <0x40>;
+
+        color-mapping = <LED_COLOR_ID_GREEN LED_COLOR_ID_RED LED_COLOR_ID_BLUE>;
+    };
 };
 
 /*

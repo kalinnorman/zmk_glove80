@@ -50,4 +50,25 @@ config ZMK_SPLIT_PERIPHERAL_HID_INDICATORS
 config ZMK_SPLIT_BLE_CENTRAL_UNDERGLOW_STATUS_PROXY
     default y
 
+# The dongle has no LED strip of its own, but &rgb_ug is a
+# BEHAVIOR_LOCALITY_GLOBAL behavior: zmk_behavior_invoke_binding() resolves
+# the behavior device *locally* on the central before it will relay the
+# command to peripherals at all (see src/behavior.c). Without RGB_UNDERGLOW
+# enabled here, that local lookup fails and the command is silently dropped
+# before ever reaching LH/RH - so this needs to stay on even though the
+# dongle itself has nothing to light up. See the small placeholder
+# led_strip in glove80_dongle.overlay this depends on.
+config ZMK_RGB_UNDERGLOW
+    default y
+
+if ZMK_RGB_UNDERGLOW
+
+config SPI
+    default y
+
+config WS2812_STRIP
+    default y
+
+endif # ZMK_RGB_UNDERGLOW
+
 endif # SHIELD_GLOVE80_DONGLE
