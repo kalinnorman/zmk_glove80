@@ -34,6 +34,13 @@ config ZMK_BLE
 config ZMK_SPLIT_BLE_CENTRAL_BATTERY_LEVEL_FETCHING
     default y
 
+# Expose each peripheral's battery level to the host as its own auxiliary
+# Battery Service instance, so BLE-side battery-monitoring tools (e.g.
+# zmk-battery-center) can see LH and RH separately, not just whatever the
+# dongle itself reports.
+config ZMK_SPLIT_BLE_CENTRAL_BATTERY_LEVEL_PROXY
+    default y
+
 # Relay HID indicator (caps/num/scroll lock) state to the peripherals.
 config ZMK_SPLIT_PERIPHERAL_HID_INDICATORS
     default y

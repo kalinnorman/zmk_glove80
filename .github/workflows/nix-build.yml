@@ -54,10 +54,10 @@ jobs:
       fail-fast: false
       matrix:
         attr:
-          - glove80_dongle
-          - glove80_left
-          - glove80_right
-          - glove80_settings_reset_dongle
+          - glove80_dongle_xiao
+          - glove80_dongle_left
+          - glove80_dongle_right
+          - glove80_settings_reset_xiao
           - glove80_settings_reset_left
           - glove80_settings_reset_right
     steps:

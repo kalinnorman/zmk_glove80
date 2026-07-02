@@ -45,3 +45,14 @@
 &physical_layout0 {
     transform = <&matrix_transform0>;
 };
+
+/*
+ * The XIAO BLE's generic board overlay (boards/seeeduino_xiao_ble.overlay)
+ * wires up a battery voltage divider on the assumption a LiPo cell is
+ * attached. A bare dongle typically has no battery attached, so that ADC
+ * reading is meaningless noise - disable it so the dongle doesn't report a
+ * garbage "battery level" to the host or to battery-monitoring tools.
+ */
+&vbatt {
+    status = "disabled";
+};

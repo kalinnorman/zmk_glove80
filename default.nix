@@ -64,14 +64,18 @@ makeScope newScope (self: with self; {
   #   - glove80_right        (unchanged - RH is already a peripheral)
   # Flash the matching glove80_settings_reset_* firmware to all three first
   # if they were previously paired in another role.
-  glove80_dongle = zmk.override {
+  glove80_dongle_xiao = zmk.override {
     board = "seeeduino_xiao_ble";
     shield = "glove80_dongle";
   };
 
-  glove80_left = zmk.override {
+  glove80_dongle_left = zmk.override {
     board = "glove80_lh";
     kconfig = ./app/boards/arm/glove80/glove80_lh_dongle_peripheral.conf;
+  };
+
+  glove80_dongle_right = zmk.override {
+    board = "glove80_rh";
   };
 
   glove80_settings_reset_dongle = zmk.override {
